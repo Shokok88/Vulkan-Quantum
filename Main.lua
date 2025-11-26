@@ -1,44 +1,115 @@
--- VULKAN WORKING DESYNC v5.0
--- РАБОЧИЙ ДИСИНК С КЛОНОМ
+-- VULKAN QUANTUM CLONER DESYNC v6.0
+-- РАБОЧИЙ ДИСИНК С QUANTUM CLONER
 
 getgenv().Vulkan = {
     DesyncEnabled = false,
+    OriginalPosition = nil,
     Clone = nil,
-    OriginalPosition = nil
+    QuantumCloner = nil
 }
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- РАБОЧИЙ ДИСИНК МЕТОД
-function CreateWorkingDesync()
-    if not player.Character then return end
-    
+-- ПОИСК QUANTUM CLONER В ИНВЕНТАРЕ
+function FindQuantumCloner()
     local character = player.Character
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local root = character:FindFirstChild("HumanoidRootPart")
+    if not character then return nil end
     
-    if not root then return end
-    
-    -- Сохраняем оригинальную позицию для дисинка
-    getgenv().Vulkan.OriginalPosition = root.CFrame
-    
-    -- Создаем клона который будет видимым
-    local clone = character:Clone()
-    clone.Name = "DesyncClone"
-    
-    -- Настраиваем клона (полупрозрачный красный)
-    for _, part in pairs(clone:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.Transparency = 0.6
-            part.Material = Enum.Material.Neon
-            part.Color = Color3.fromRGB(255, 50, 50)
-            part.CanCollide = false
+    -- Ищем в инвентаре
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in pairs(backpack:GetChildren()) do
+            if string.lower(tool.Name):find("quantum") or string.lower(tool.Name):find("cloner") then
+                return tool
+            end
         end
     end
     
-    -- Убираем оригинального персонажа
+    -- Ищем в руках
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") and (string.lower(tool.Name):find("quantum") or string.lower(tool.Name):find("cloner")) then
+            return tool
+        end
+    end
+    
+    return nil
+end
+
+-- АКТИВАЦИЯ QUANTUM CLONER
+function ActivateQuantumCloner()
+    local character = player.Character
+    if not character then return false end
+    
+    -- Ищем клонер
+    local cloner = FindQuantumCloner()
+    if not cloner then
+        warn("❌ Quantum Cloner not found in inventory!")
+        return false
+    end
+    
+    getgenv().Vulkan.QuantumCloner = cloner
+    
+    -- Берем в руки
+    cloner.Parent = character
+    
+    -- Активируем (используем)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:EquipTool(cloner)
+        
+        -- Имитируем использование
+        wait(0.5)
+        if cloner:FindFirstChild("Handle") then
+            -- Вызываем создание клона через инструмент
+            local remote = FindRemoteEvent(cloner)
+            if remote then
+                remote:FireServer()
+            end
+        end
+    end
+    
+    return true
+end
+
+-- ПОИСК REMOTE EVENT В ИНСТРУМЕНТЕ
+function FindRemoteEvent(tool)
+    for _, obj in pairs(tool:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            return obj
+        end
+    end
+    return nil
+end
+
+-- ОСНОВНОЙ ДИСИНК
+function CreateQuantumDesync()
+    if not player.Character then return false end
+    
+    local character = player.Character
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    
+    -- Активируем клонер
+    if not ActivateQuantumCloner() then
+        return false
+    end
+    
+    -- Ждем создания клона игрой
+    wait(1)
+    
+    -- Ищем созданного игрой клона
+    local gameClone = FindGameClone()
+    if not gameClone then
+        warn("❌ Game didn't create clone")
+        return false
+    end
+    
+    getgenv().Vulkan.Clone = gameClone
+    getgenv().Vulkan.OriginalPosition = root.CFrame
+    
+    -- Делаем оригинал невидимым
     for _, part in pairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
             part.Transparency = 1
@@ -46,36 +117,55 @@ function CreateWorkingDesync()
         end
     end
     
-    clone.Parent = workspace
-    getgenv().Vulkan.Clone = clone
-    
-    -- Двигаем клона вместо оригинала
-    local connection
-    connection = RunService.Stepped:Connect(function()
-        if not getgenv().Vulkan.DesyncEnabled or not clone or not clone.Parent then
-            connection:Disconnect()
-            return
+    -- Настраиваем игрового клона (делаем его видимым как "оригинал")
+    for _, part in pairs(gameClone:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 0
+            part.Material = Enum.Material.ForceField
+            part.Color = Color3.fromRGB(0, 255, 255)
+            part.CanCollide = true
         end
-        
-        local cloneRoot = clone:FindFirstChild("HumanoidRootPart")
-        local realRoot = character:FindFirstChild("HumanoidRootPart")
-        
-        if cloneRoot and realRoot then
-            -- Клон двигается как игрок
-            cloneRoot.CFrame = realRoot.CFrame
-            
-            -- Оригинал стоит на месте (дисинк)
-            realRoot.CFrame = getgenv().Vulkan.OriginalPosition
-        end
-    end)
+    end
     
-    print("✅ DESYNC ACTIVATED - Clone is visible, original is desynced")
+    -- ПЕРЕМЕЩАЕМ ИГРОКА В ПОЗИЦИЮ КЛОНА
+    root.CFrame = gameClone.HumanoidRootPart.CFrame
+    
+    print("✅ QUANTUM DESYNC ACTIVATED!")
+    print("📍 Player moved to clone position")
+    print("🎮 Clone is now the visible character")
+    
+    return true
 end
 
+-- ПОИСК КЛОНА СОЗДАННОГО ИГРОЙ
+function FindGameClone()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and obj ~= player.Character then
+            if obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+                if string.lower(obj.Name):find("clone") or obj.Name == "QuantumClone" then
+                    return obj
+                end
+            end
+        end
+    end
+    
+    -- Если не нашли по имени, ищем любого другого персонажа кроме нашего
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and obj ~= player.Character then
+            if obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+                return obj
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- ВЫКЛЮЧЕНИЕ ДИСИНКА
 function RemoveDesync()
     local character = player.Character
     if character then
-        -- Возвращаем видимость оригиналу
+        -- Возвращаем видимость
         for _, part in pairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.Transparency = 0
@@ -99,12 +189,14 @@ function ToggleDesync()
         RemoveDesync()
     else
         getgenv().Vulkan.DesyncEnabled = true
-        CreateWorkingDesync()
+        if not CreateQuantumDesync() then
+            getgenv().Vulkan.DesyncEnabled = false
+        end
     end
     UpdateGUI()
 end
 
--- ГУИ С СВОРАЧИВАНИЕМ
+-- ГУИ
 function CreateGUI()
     local ScreenGui = Instance.new("ScreenGui")
     local MainFrame = Instance.new("Frame")
@@ -114,8 +206,9 @@ function CreateGUI()
     local Content = Instance.new("Frame")
     local DesyncButton = Instance.new("TextButton")
     local Status = Instance.new("TextLabel")
+    local Info = Instance.new("TextLabel")
     
-    ScreenGui.Name = "VulkanDesyncGUI"
+    ScreenGui.Name = "VulkanQuantumGUI"
     ScreenGui.Parent = game:GetService("CoreGui")
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
@@ -125,7 +218,7 @@ function CreateGUI()
     MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     MainFrame.BorderSizePixel = 0
     MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
-    MainFrame.Size = UDim2.new(0, 250, 0, 150)
+    MainFrame.Size = UDim2.new(0, 300, 0, 180)
     MainFrame.Active = true
     MainFrame.Draggable = true
     
@@ -134,7 +227,7 @@ function CreateGUI()
     Corner.Parent = MainFrame
     
     local Stroke = Instance.new("UIStroke")
-    Stroke.Color = Color3.fromRGB(255, 0, 0)
+    Stroke.Color = Color3.fromRGB(0, 255, 255)
     Stroke.Thickness = 2
     Stroke.Parent = MainFrame
     
@@ -155,9 +248,9 @@ function CreateGUI()
     Title.BackgroundTransparency = 1
     Title.Size = UDim2.new(1, -40, 1, 0)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "VULKAN DESYNC v5.0"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 14
+    Title.Text = "QUANTUM CLONER DESYNC"
+    Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+    Title.TextSize = 12
     
     -- Minimize Button
     MinimizeBtn.Name = "MinimizeBtn"
@@ -185,14 +278,14 @@ function CreateGUI()
     -- Desync Button
     DesyncButton.Name = "DesyncButton"
     DesyncButton.Parent = Content
-    DesyncButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    DesyncButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
     DesyncButton.BorderSizePixel = 0
-    DesyncButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+    DesyncButton.Position = UDim2.new(0.1, 0, 0.1, 0)
     DesyncButton.Size = UDim2.new(0.8, 0, 0, 40)
     DesyncButton.Font = Enum.Font.GothamBold
-    DesyncButton.Text = "DESYNC: OFF"
+    DesyncButton.Text = "ACTIVATE QUANTUM DESYNC"
     DesyncButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DesyncButton.TextSize = 14
+    DesyncButton.TextSize = 12
     
     local ButtonCorner = Instance.new("UICorner")
     ButtonCorner.CornerRadius = UDim.new(0, 6)
@@ -202,22 +295,34 @@ function CreateGUI()
     Status.Name = "Status"
     Status.Parent = Content
     Status.BackgroundTransparency = 1
-    Status.Position = UDim2.new(0, 0, 0.7, 0)
+    Status.Position = UDim2.new(0, 0, 0.4, 0)
     Status.Size = UDim2.new(1, 0, 0, 20)
     Status.Font = Enum.Font.Gotham
-    Status.Text = "Press Q or click button"
+    Status.Text = "Requires Quantum Cloner tool"
     Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Status.TextSize = 12
+    Status.TextSize = 11
+    
+    -- Info
+    Info.Name = "Info"
+    Info.Parent = Content
+    Info.BackgroundTransparency = 1
+    Info.Position = UDim2.new(0, 0, 0.6, 0)
+    Info.Size = UDim2.new(1, 0, 0, 40)
+    Info.Font = Enum.Font.Gotham
+    Info.Text = "Uses game's Quantum Cloner tool\nMoves you to clone position\nHotkey: Q"
+    Info.TextColor3 = Color3.fromRGB(150, 150, 150)
+    Info.TextSize = 10
+    Info.TextYAlignment = Enum.TextYAlignment.Top
     
     -- Minimize Function
     local minimized = false
     MinimizeBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
-            MainFrame.Size = UDim2.new(0, 250, 0, 30)
+            MainFrame.Size = UDim2.new(0, 300, 0, 30)
             Content.Visible = false
         else
-            MainFrame.Size = UDim2.new(0, 250, 0, 150)
+            MainFrame.Size = UDim2.new(0, 300, 0, 180)
             Content.Visible = true
         end
     end)
@@ -244,13 +349,13 @@ function UpdateGUI()
     
     if getgenv().Vulkan.DesyncEnabled then
         DesyncButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-        DesyncButton.Text = "DESYNC: ON"
-        Status.Text = "DESYNC ACTIVE - Clone visible"
+        DesyncButton.Text = "QUANTUM DESYNC ACTIVE"
+        Status.Text = "You are now the clone!"
         Status.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
-        DesyncButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        DesyncButton.Text = "DESYNC: OFF"
-        Status.Text = "Ready - Press Q or click"
+        DesyncButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        DesyncButton.Text = "ACTIVATE QUANTUM DESYNC"
+        Status.Text = "Requires Quantum Cloner tool"
         Status.TextColor3 = Color3.fromRGB(200, 200, 200)
     end
 end
@@ -260,7 +365,7 @@ if not player.Character then
     player.CharacterAdded:Wait()
 end
 
-wait(1)
+wait(2)
 CreateGUI()
 
 -- Горячая клавиша Q
@@ -270,6 +375,6 @@ game:GetService("UserInputService").InputBegan:Connect(function(input)
     end
 end)
 
-print("🔥 VULKAN DESYNC v5.0 LOADED!")
-print("🎯 Press Q to toggle desync")
-print("📌 Red clone = you, original = desynced")
+print("🔥 QUANTUM CLONER DESYNC v6.0 LOADED!")
+print("📌 Make sure you have Quantum Cloner tool!")
+print("🎮 Press Q to activate")
